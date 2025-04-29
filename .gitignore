@@ -62,7 +62,10 @@ htmlcov/
 # Model files
 models/*.h5
 models/*.keras
-models/*.pkl
+# Allow vocabulary files
+!models/vocab.pkl
+!models/char_to_idx.pkl
+!models/idx_to_char.pkl
 
 # Data files
 data/*.txt
