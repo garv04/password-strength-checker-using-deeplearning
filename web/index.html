@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Password Strength Evaluator</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .container {
+            max-width: 800px;
+            padding: 20px;
+            margin-top: 40px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #343a40;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        #strength-meter {
+            height: 10px;
+            border-radius: 5px;
+            margin: 20px 0;
+            transition: all 0.3s ease;
+        }
+        .result-card {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+            border-left: 5px solid #6c757d;
+        }
+        .very-weak { background-color: #dc3545; border-color: #dc3545; }
+        .weak { background-color: #f7931e; border-color: #f7931e; }
+        .moderate { background-color: #ffc107; border-color: #ffc107; }
+        .strong { background-color: #20c997; border-color: #20c997; }
+        .very-strong { background-color: #198754; border-color: #198754; }
+        
+        #simulation-results {
+            margin-top: 20px;
+            display: none;
+        }
+        
+        .chart-container {
+            height: 300px;
+            margin-top: 30px;
+        }
+        
+        .password-input-container {
+            position: relative;
+        }
+        
+        #toggle-password {
+            position: absolute;
+            right: 10px;
+            top: 10px;
+            cursor: pointer;
+            color: #6c757d;
+        }
+        
+        .btn-primary {
+            background-color: #0d6efd;
+            border-color: #0d6efd;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        .spinner-border {
+            width: 3rem;
+            height: 3rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Password Strength Evaluator</h1>
+        
+        <div class="card mb-4">
+            <div class="card-body">
+                <h5 class="card-title">Check Your Password Strength</h5>
+                <div class="mb-3 password-input-container">
+                    <label for="password" class="form-label">Enter Password</label>
+                    <input type="password" class="form-control" id="password" placeholder="Type your password here">
+                    <i class="bi bi-eye" id="toggle-password">👁️</i>
+                </div>
+                <div id="strength-meter"></div>
+                <div class="d-flex justify-content-between">
+                    <button class="btn btn-primary" id="evaluate-btn">Evaluate Strength</button>
+                    <button class="btn btn-secondary" id="simulate-btn">Simulate Attacks</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="loading" id="loading">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p>Evaluating password strength...</p>
+        </div>
+        
+        <div id="results" style="display: none;">
+            <!-- Basic Results -->
+            <div class="result-card">
+                <h4>Results</h4>
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>Strength Score:</strong> <span id="strength-score">0</span>/100</p>
+                        <p><strong>Category:</strong> <span id="strength-category">N/A</span></p>
+                        <p><strong>Entropy:</strong> <span id="entropy-bits">0</span> bits</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Password Length:</strong> <span id="password-length">0</span> characters</p>
+                        <p><strong>Character Sets:</strong> <span id="character-sets">None</span></p>
+                        <p><strong>Common Patterns:</strong> <span id="common-patterns">None detected</span></p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Crack Times -->
+            <div class="result-card mt-4">
+                <h4>Estimated Crack Times</h4>
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>Online Attack:</strong> <span id="online-time">-</span></p>
+                        <p><strong>Offline (Slow Hash):</strong> <span id="offline-slow-time">-</span></p>
+                        <p><strong>Offline (Fast Hash):</strong> <span id="offline-fast-time">-</span></p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Offline (GPU):</strong> <span id="offline-gpu-time">-</span></p>
+                        <p><strong>Distributed Attack:</strong> <span id="offline-botnet-time">-</span></p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Recommendations -->
+            <div class="result-card mt-4">
+                <h4>Recommendations</h4>
+                <ul id="improvements-list">
+                    <li>Awaiting analysis...</li>
+                </ul>
+            </div>
+        </div>
+        
+        <!-- Simulation Results (Hidden by default) -->
+        <div id="simulation-results">
+            <div class="result-card">
+                <h4>Attack Simulation Results</h4>
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Attack Type</th>
+                                <th>Success</th>
+                                <th>Attempts</th>
+                                <th>Time</th>
+                            </tr>
+                        </thead>
+                        <tbody id="simulation-table">
+                            <!-- Populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Visualization -->
+            <div class="result-card mt-4">
+                <h4>Visualization</h4>
+                <div class="chart-container">
+                    <canvas id="attack-chart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // DOM elements
+            const passwordInput = document.getElementById('password');
+            const togglePassword = document.getElementById('toggle-password');
+            const strengthMeter = document.getElementById('strength-meter');
+            const evaluateBtn = document.getElementById('evaluate-btn');
+            const simulateBtn = document.getElementById('simulate-btn');
+            const resultsDiv = document.getElementById('results');
+            const simulationResultsDiv = document.getElementById('simulation-results');
+            const loadingDiv = document.getElementById('loading');
+            
+            // Toggle password visibility
+            togglePassword.addEventListener('click', function() {
+                const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+                passwordInput.setAttribute('type', type);
+                this.textContent = type === 'password' ? '👁️' : '🔒';
+            });
+            
+            // Password input real-time feedback
+            passwordInput.addEventListener('input', function() {
+                const password = this.value;
+                
+                // Simple client-side strength indication (placeholder until API call)
+                let strength = 0;
+                
+                if (password.length > 0) {
+                    strength += Math.min(25, password.length * 2); // Length
+                    
+                    if (/[A-Z]/.test(password)) strength += 15; // Uppercase
+                    if (/[a-z]/.test(password)) strength += 10; // Lowercase
+                    if (/[0-9]/.test(password)) strength += 15; // Numbers
+                    if (/[^A-Za-z0-9]/.test(password)) strength += 20; // Special chars
+                    
+                    // Reduce for common patterns (very simplistic)
+                    if (/password|12345|qwerty|admin/i.test(password)) strength -= 25;
+                }
+                
+                updateStrengthMeter(strength);
+            });
+            
+            // Update strength meter visual
+            function updateStrengthMeter(score) {
+                strengthMeter.style.width = score + '%';
+                
+                // Update color based on score
+                strengthMeter.className = '';
+                if (score >= 80) {
+                    strengthMeter.classList.add('very-strong');
+                } else if (score >= 60) {
+                    strengthMeter.classList.add('strong');
+                } else if (score >= 40) {
+                    strengthMeter.classList.add('moderate');
+                } else if (score >= 20) {
+                    strengthMeter.classList.add('weak');
+                } else {
+                    strengthMeter.classList.add('very-weak');
+                }
+            }
+            
+            // Evaluate button click
+            evaluateBtn.addEventListener('click', function() {
+                const password = passwordInput.value;
+                
+                if (!password) {
+                    alert('Please enter a password to evaluate');
+                    return;
+                }
+                
+                // Show loading
+                loadingDiv.style.display = 'block';
+                resultsDiv.style.display = 'none';
+                simulationResultsDiv.style.display = 'none';
+                
+                // API endpoint (update with your actual endpoint)
+                const apiUrl = 'http://localhost:5000/api/evaluate';
+                
+                // Fetch API call
+                fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ password: password })
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Update results
+                    updateResults(data);
+                    
+                    // Hide loading, show results
+                    loadingDiv.style.display = 'none';
+                    resultsDiv.style.display = 'block';
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error evaluating password: ' + error.message);
+                    loadingDiv.style.display = 'none';
+                });
+            });
+            
+            // Simulate button click
+            simulateBtn.addEventListener('click', function() {
+                const password = passwordInput.value;
+                
+                if (!password) {
+                    alert('Please enter a password to evaluate');
+                    return;
+                }
+                
+                // Show loading
+                loadingDiv.style.display = 'block';
+                loadingDiv.querySelector('p').textContent = 'Simulating password attacks...';
+                resultsDiv.style.display = 'none';
+                simulationResultsDiv.style.display = 'none';
+                
+                // API endpoint (update with your actual endpoint)
+                const apiUrl = 'http://localhost:5000/api/simulate';
+                
+                // Fetch API call
+                fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ password: password, max_attempts: 100000 })
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Update simulation results
+                    updateSimulationResults(data);
+                    
+                    // Also update regular results if theoretical data is included
+                    if (data.theoretical) {
+                        updateResults(data.theoretical);
+                    }
+                    
+                    // Hide loading, show results
+                    loadingDiv.style.display = 'none';
+                    resultsDiv.style.display = 'block';
+                    simulationResultsDiv.style.display = 'block';
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error simulating attacks: ' + error.message);
+                    loadingDiv.style.display = 'none';
+                    loadingDiv.querySelector('p').textContent = 'Evaluating password strength...';
+                });
+            });
+            
+            // Update results display
+            function updateResults(data) {
+                // Update strength meter
+                updateStrengthMeter(data.strength_score);
+                
+                // Update text fields
+                document.getElementById('strength-score').textContent = data.strength_score;
+                document.getElementById('strength-category').textContent = data.strength_category;
+                document.getElementById('entropy-bits').textContent = data.entropy_bits.toFixed(2);
+                document.getElementById('password-length').textContent = data.length;
+                
+                // Update character sets
+                const charSets = [];
+                if (data.password.match(/[a-z]/)) charSets.push('lowercase');
+                if (data.password.match(/[A-Z]/)) charSets.push('uppercase');
+                if (data.password.match(/[0-9]/)) charSets.push('digits');
+                if (data.password.match(/[^a-zA-Z0-9]/)) charSets.push('special');
+                document.getElementById('character-sets').textContent = charSets.join(', ') || 'None';
+                
+                // Update patterns
+                document.getElementById('common-patterns').textContent = 
+                    data.patterns_found.length > 0 ? data.patterns_found.join(', ') : 'None detected';
+                
+                // Update crack times
+                document.getElementById('online-time').textContent = data.crack_times.online.formatted;
+                document.getElementById('offline-slow-time').textContent = data.crack_times.offline_slow.formatted;
+                document.getElementById('offline-fast-time').textContent = data.crack_times.offline_fast.formatted;
+                document.getElementById('offline-gpu-time').textContent = data.crack_times.offline_gpu.formatted;
+                document.getElementById('offline-botnet-time').textContent = data.crack_times.offline_botnet.formatted;
+                
+                // Update improvements
+                const improvementsList = document.getElementById('improvements-list');
+                improvementsList.innerHTML = '';
+                
+                if (data.improvements.length > 0) {
+                    data.improvements.forEach(improvement => {
+                        const li = document.createElement('li');
+                        li.textContent = improvement;
+                        improvementsList.appendChild(li);
+                    });
+                } else {
+                    const li = document.createElement('li');
+                    li.textContent = 'Your password is strong. No specific improvements needed.';
+                    improvementsList.appendChild(li);
+                }
+                
+                // Apply card color based on strength
+                const resultCards = document.querySelectorAll('.result-card');
+                resultCards.forEach(card => {
+                    card.classList.remove('very-weak', 'weak', 'moderate', 'strong', 'very-strong');
+                    
+                    if (data.strength_category === 'Very Weak') {
+                        card.classList.add('very-weak');
+                    } else if (data.strength_category === 'Weak') {
+                        card.classList.add('weak');
+                    } else if (data.strength_category === 'Moderate') {
+                        card.classList.add('moderate');
+                    } else if (data.strength_category === 'Strong') {
+                        card.classList.add('strong');
+                    } else if (data.strength_category === 'Very Strong') {
+                        card.classList.add('very-strong');
+                    }
+                });
+            }
+            
+            // Update simulation results
+            function updateSimulationResults(data) {
+                const tableBody = document.getElementById('simulation-table');
+                tableBody.innerHTML = '';
+                
+                // Data for chart
+                const attackTypes = [];
+                const attemptCounts = [];
+                const timeData = [];
+                
+                // Add rows for each attack
+                for (const [attackType, result] of Object.entries(data.attacks)) {
+                    const row = document.createElement('tr');
+                    
+                    // Format attack type name
+                    const formattedAttackType = attackType
+                        .split('_')
+                        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                        .join(' ');
+                    
+                    if ('error' in result) {
+                        // Error case
+                        row.innerHTML = `
+                            <td>${formattedAttackType}</td>
+                            <td colspan="3">Error: ${result.error}</td>
+                        `;
+                    } else {
+                        // Success case
+                        row.innerHTML = `
+                            <td>${formattedAttackType}</td>
+                            <td>${result.success ? 'Yes' : 'No'}</td>
+                            <td>${result.attempts.toLocaleString()}</td>
+                            <td>${result.elapsed_time.toFixed(2)} seconds</td>
+                        `;
+                        
+                        // Collect data for chart
+                        attackTypes.push(formattedAttackType);
+                        attemptCounts.push(result.attempts);
+                        timeData.push(result.elapsed_time);
+                    }
+                    
+                    tableBody.appendChild(row);
+                }
+                
+                // Create chart
+                const ctx = document.getElementById('attack-chart').getContext('2d');
+                
+                // Destroy previous chart if exists
+                if (window.attackChart) {
+                    window.attackChart.destroy();
+                }
+                
+                window.attackChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: attackTypes,
+                        datasets: [
+                            {
+                                label: 'Attempts',
+                                data: attemptCounts,
+                                backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                                borderColor: 'rgba(54, 162, 235, 1)',
+                                borderWidth: 1,
+                                yAxisID: 'y'
+                            },
+                            {
+                                label: 'Time (seconds)',
+                                data: timeData,
+                                backgroundColor: 'rgba(255, 99, 132, 0.5)',
+                                borderColor: 'rgba(255, 99, 132, 1)',
+                                borderWidth: 1,
+                                yAxisID: 'y1'
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                type: 'logarithmic',
+                                position: 'left',
+                                title: {
+                                    display: true,
+                                    text: 'Attempts (log scale)'
+                                }
+                            },
+                            y1: {
+                                type: 'logarithmic',
+                                position: 'right',
+                                title: {
+                                    display: true,
+                                    text: 'Time in seconds (log scale)'
+                                },
+                                grid: {
+                                    drawOnChartArea: false
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html> 
