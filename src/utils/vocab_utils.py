@@ -199,4 +199,36 @@ def get_char_categories(vocab: Dict[str, int]) -> Dict[str, List[int]]:
         else:
             categories["special_chars"].append(idx)
     
-    return categories 
+    return categories
+
+def create_and_save_default_vocabulary(output_dir: str = "models") -> None:
+    """
+    Create and save a default vocabulary file with common characters
+    
+    Args:
+        output_dir: Directory to save the vocabulary file
+    """
+    # Create output directory if it doesn't exist
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # Create default vocabulary
+    vocab = create_default_vocabulary()
+    
+    # Save vocabulary files
+    vocab_path = os.path.join(output_dir, "vocab.pkl")
+    char_to_idx_path = os.path.join(output_dir, "char_to_idx.pkl")
+    idx_to_char_path = os.path.join(output_dir, "idx_to_char.pkl")
+    
+    # Save vocabulary
+    with open(vocab_path, 'wb') as f:
+        pickle.dump(list(vocab.keys()), f)
+    
+    # Save mappings
+    with open(char_to_idx_path, 'wb') as f:
+        pickle.dump(vocab, f)
+    
+    with open(idx_to_char_path, 'wb') as f:
+        pickle.dump({idx: char for char, idx in vocab.items()}, f)
+    
+    print(f"Created default vocabulary with {len(vocab)} characters")
+    print(f"Saved vocabulary files to {output_dir}") 
